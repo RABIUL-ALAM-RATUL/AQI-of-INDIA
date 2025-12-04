@@ -1,7 +1,15 @@
-echo "# AQI-of-INDIA" >> README.md
-git init
-git add README.md
-git commit -m "first commit"
-git branch -M main
-git remote add origin git@github.com:RABIUL-ALAM-RATUL/AQI-of-INDIA.git
-git push -u origin main
+# India Air Quality Analysis - CMP7005 PRAC1
+
+## Project Overview
+Analysis of India's air quality data (2015-2020) with predictive modeling and an interactive dashboard.
+
+## Features
+- Data preprocessing and cleaning pipeline
+- Comprehensive EDA with visualizations
+- Machine learning models for AQI prediction
+- Interactive Streamlit dashboard
+- Version control with GitHub
+
+## Installation
+```bash
+pip install -r requirements.txt
