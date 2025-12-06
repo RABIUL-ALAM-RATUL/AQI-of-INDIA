@@ -1,6 +1,7 @@
-streamlit==1.28.1
-pandas==2.0.3
-numpy==1.24.3
-matplotlib==3.7.1
-seaborn==0.12.2
-rich==13.7.0
+streamlit>=1.28.0
+pandas
+numpy
+plotly
+matplotlib
+openpyxl
+scikit-learn
