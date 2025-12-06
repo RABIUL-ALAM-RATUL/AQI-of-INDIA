@@ -2,385 +2,287 @@
 # AIR QUALITY ANALYSIS DASHBOARD - app.py
 # Fully Fixed & Enhanced Version (Dec 2025)
 # ==============================================
-# ==============================================
-# STEP 6: GENERATE STREAMLIT APP FILE (app.py)
-# ==============================================
-
-import os
-
-# Define the path where the app.py file will be saved
-# You can change this to your desired location in Google Drive
-app_file_path = '/content/drive/MyDrive/Programming for Data Analysis/app.py' 
-
-print(f"Creating Streamlit app at: {app_file_path} ...")
-
-# The entire app code as a multi-line string
-app_code = """
-# ==============================================
-# INDIA AIR QUALITY ANALYSIS DASHBOARD
-# ==============================================
-
+# Import the Streamlit library for creating the web application
 import streamlit as st
+# Import Pandas for data manipulation and DataFrame handling
 import pandas as pd
+# Import NumPy for numerical operations and array handling
 import numpy as np
+# Import Plotly Express for easy, high-level interactive plotting
 import plotly.express as px
+# Import Plotly Graph Objects for more detailed, lower-level chart customization
 import plotly.graph_objects as go
+# Import OS module to interact with the operating system (e.g., checking file paths)
 import os
+# Import Pickle to load trained machine learning models
 import pickle
+# Import Warnings to suppress unnecessary alert messages in the app
 import warnings
+# Import datetime to handle date and time objects
 from datetime import datetime
 
+# Suppress all warnings to keep the dashboard clean
 warnings.filterwarnings("ignore")
 
 # ==============================================
 # 1. PAGE CONFIGURATION & STYLING
 # ==============================================
+# Configure the Streamlit page settings
 st.set_page_config(
-    page_title="India Air Quality Dashboard",
-    page_icon="🌫️",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="India Air Quality Dashboard",  # Title displayed in the browser tab
+    page_icon="🌫️",                           # Icon displayed in the browser tab
+    layout="wide",                             # Use the full width of the screen
+    initial_sidebar_state="expanded"           # Keep the sidebar open by default
 )
 
-# Custom CSS for a modern look
-st.markdown(\"\"\"
+# Inject custom CSS to style the application
+st.markdown("""
 <style>
-    /* Global Background */
+    /* Set the background color gradient for the entire app */
     .stApp { background: linear-gradient(to bottom, #f8f9fa, #ffffff); }
     
-    /* Headers */
+    /* Style the main header (Title) */
     .main-header {
-        font-size: 2.5rem; color: #1E3A8A; text-align: center; padding: 1rem;
-        font-weight: 800; background: -webkit-linear-gradient(45deg, #1E3A8A, #3B82F6);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
-    .section-header {
-        font-size: 1.8rem; color: #10B981; margin-top: 1.5rem; margin-bottom: 1rem;
-        border-bottom: 2px solid #3B82F6; padding-bottom: 0.5rem; font-weight: 700;
+        font-size: 2.5rem;                     /* Large font size */
+        color: #1E3A8A;                        /* Dark blue color */
+        text-align: center;                    /* Center align text */
+        padding: 1rem;                         /* Add padding around text */
+        font-weight: 800;                      /* Bold font weight */
+        /* Add a gradient effect to the text itself */
+        background: -webkit-linear-gradient(45deg, #1E3A8A, #3B82F6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
     
-    /* Cards/Boxes */
+    /* Style the cards used for metrics */
     .metric-card {
-        background: white; padding: 1.2rem; border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center;
-        border-left: 5px solid #3B82F6;
+        background: white;                     /* White background */
+        padding: 1.2rem;                       /* Internal padding */
+        border-radius: 12px;                   /* Rounded corners */
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05); /* Subtle shadow effect */
+        text-align: center;                    /* Center text */
+        border-left: 5px solid #3B82F6;        /* Blue accent line on the left */
     }
+    
+    /* Style the information boxes */
     .info-box {
-        background-color: #EFF6FF; padding: 1rem; border-radius: 10px;
-        border-left: 5px solid #3B82F6; margin-bottom: 1rem; color: #1E3A8A;
+        background-color: #EFF6FF;             /* Light blue background */
+        padding: 1rem;                         /* Internal padding */
+        border-radius: 10px;                   /* Rounded corners */
+        border-left: 5px solid #3B82F6;        /* Blue accent line */
+        margin-bottom: 1rem;                   /* Space below the box */
+        color: #1E3A8A;                        /* Dark blue text color */
     }
-    .success-box {
-        background-color: #ECFDF5; padding: 1rem; border-radius: 10px;
-        border-left: 5px solid #10B981; margin-bottom: 1rem; color: #065F46;
-    }
-    
-    /* Interactive Elements */
-    .stButton>button {
-        width: 100%; border-radius: 8px; font-weight: 600;
-        background: linear-gradient(90deg, #3B82F6, #2563EB); border: none;
-        color: white; padding: 0.6rem; transition: transform 0.2s;
-    }
-    .stButton>button:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(37,99,235,0.2); }
 </style>
-\"\"\", unsafe_allow_html=True)
+""", unsafe_allow_html=True) # Allow HTML rendering for the styles
 
-# Title
+# Display the main title of the dashboard using the custom CSS class
 st.markdown('<h1 class="main-header">🌫️ India Air Quality Dashboard</h1>', unsafe_allow_html=True)
-st.markdown('<div class="info-box"><strong>Interactive Analytics Platform</strong> | Explore air quality trends, visualize pollutant distributions, and predict AQI using Machine Learning.</div>', unsafe_allow_html=True)
 
 # ==============================================
-# 2. DATA LOADING & CACHING
+# 2. DATA LOADING
 # ==============================================
-
-@st.cache_data(ttl=3600)
+# Use @st.cache_data to cache the result of this function, speeding up the app on re-runs
+@st.cache_data
 def load_dataset():
-    # Attempt to load local/Drive file first
-    possible_paths = [
-        'preprocessed_air_quality_data.csv',
-        '/content/drive/MyDrive/Programming for Data Analysis/preprocessed_air_quality_data.csv',
-        'air_quality_data.csv'
-    ]
+    """Load the dataset from CSV, with a fallback to dummy data if missing."""
     
-    for path in possible_paths:
-        if os.path.exists(path):
-            try:
-                df = pd.read_csv(path)
-                # Ensure date column is datetime
-                date_cols = [c for c in df.columns if 'date' in c.lower()]
-                if date_cols:
-                    df[date_cols[0]] = pd.to_datetime(df[date_cols[0]], errors='coerce')
-                    df['date'] = df[date_cols[0]] # Standardize name
-                return df
-            except: continue
+    # Check if the preprocessed data file exists in the current directory
+    if os.path.exists('preprocessed_data.csv'):
+        try:
+            # Read the CSV file into a Pandas DataFrame
+            df = pd.read_csv('preprocessed_data.csv')
             
-    # Fallback: Generate sample data if no file found (for demo purposes)
+            # Identify columns that look like dates (containing 'date' or 'year')
+            date_cols = [c for c in df.columns if 'date' in c.lower() or 'year' in c]
+            
+            # If a date column is found
+            if date_cols:
+                # Check specifically for a column named 'date'
+                if 'date' in df.columns:
+                    # Convert it to datetime objects, turning errors into NaT (Not a Time)
+                    df['date'] = pd.to_datetime(df['date'], errors='coerce')
+            
+            # Return the loaded DataFrame
+            return df
+        except: 
+            # If loading fails, just pass and move to the fallback block
+            pass
+            
+    # FALLBACK: Generate random sample data if no file is found (prevents app crash)
+    # Create a date range from 2015 to 2018
     dates = pd.date_range(start='2015-01-01', periods=1000, freq='D')
+    
+    # Create a dictionary of random data simulating air quality metrics
     data = {
-        'date': dates,
-        'city': np.random.choice(['Delhi', 'Mumbai', 'Chennai', 'Kolkata', 'Bangalore'], 1000),
-        'PM2.5': np.random.gamma(2, 20, 1000),
-        'PM10': np.random.gamma(3, 30, 1000),
-        'NO2': np.random.normal(30, 10, 1000).clip(0),
-        'SO2': np.random.normal(15, 5, 1000).clip(0),
-        'CO': np.random.normal(1, 0.5, 1000).clip(0),
-        'O3': np.random.normal(40, 15, 1000).clip(0),
-        'AQI': np.random.gamma(5, 30, 1000) # Derived target
+        'date': dates, # The date range created above
+        'city': np.random.choice(['Delhi', 'Mumbai', 'Chennai', 'Kolkata', 'Bangalore'], 1000), # Random cities
+        'PM2.5': np.random.gamma(2, 20, 1000), # Gamma distribution for PM2.5
+        'NO2': np.random.normal(30, 10, 1000).clip(0), # Normal distribution for NO2, clipped to be non-negative
+        'AQI': np.random.gamma(5, 30, 1000) # Gamma distribution for AQI target
     }
+    
+    # Return the dictionary converted to a DataFrame
     return pd.DataFrame(data)
 
+# Use @st.cache_resource to cache heavy objects like ML models (persists across sessions)
 @st.cache_resource
-def load_ml_model():
-    # Attempt to load saved model
-    model_paths = [
-        'xgboost_aqi_model.pkl',
-        '/content/drive/MyDrive/Programming for Data Analysis/xgboost_aqi_model.pkl',
-        'best_model.pkl'
-    ]
-    for path in model_paths:
+def load_model():
+    """Load the trained machine learning model from a pickle file."""
+    # List of possible filenames for the model
+    for path in ['xgboost_aqi_model.pkl', 'best_model.pkl']:
+        # Check if the file exists
         if os.path.exists(path):
             try:
-                with open(path, 'rb') as f:
+                # Open the file in read-binary mode
+                with open(path, 'rb') as f: 
+                    # Load and return the pickle object (the trained model)
                     return pickle.load(f)
-            except: continue
+            except: 
+                # If loading fails, try the next path
+                continue
+    # Return None if no model could be loaded
     return None
 
+# Execute the loading functions
 df = load_dataset()
-model = load_ml_model()
+model = load_model()
 
 # ==============================================
-# 3. SIDEBAR CONTROLS
+# 3. SIDEBAR & FILTERS
 # ==============================================
+# Create a sidebar for user controls
 with st.sidebar:
-    st.image("https://img.icons8.com/clouds/100/000000/air-quality.png", width=80)
-    st.markdown("## 🎛️ Dashboard Controls")
+    # Add a header to the sidebar
+    st.header("Controls")
     
-    # Filter Data
+    # Check if a 'city' column exists in the data
     if 'city' in df.columns:
-        city_list = ['All'] + sorted(df['city'].unique().tolist())
-        selected_city = st.selectbox("Select City", city_list)
+        # Create a sorted list of unique cities, adding 'All' option at the top
+        cities = ['All'] + sorted(df['city'].unique().tolist())
+        # Create a dropdown widget to select a city
+        selected_city = st.selectbox("Select City", cities)
     else:
+        # Default to 'All' if no city column exists
         selected_city = 'All'
         
-    # Date Range
-    if 'date' in df.columns:
-        min_date = df['date'].min().date()
-        max_date = df['date'].max().date()
-        date_range = st.date_input("Date Range", [min_date, max_date])
-    
-    st.markdown("---")
-    st.info("Developed for CMP7005\nCardiff Metropolitan University")
+    # Display project information box
+    st.info("Project: Air Quality Analysis")
 
-# Apply Filters
+# Apply Logic to Filter Data based on Sidebar Selection
+# Create a copy of the dataframe to avoid modifying the original
 filtered_df = df.copy()
+
+# If the user selected a specific city (not 'All')
 if selected_city != 'All':
+    # Filter the dataframe to keep only rows matching that city
     filtered_df = filtered_df[filtered_df['city'] == selected_city]
-if 'date' in filtered_df.columns and len(date_range) == 2:
-    filtered_df = filtered_df[
-        (filtered_df['date'].dt.date >= date_range[0]) & 
-        (filtered_df['date'].dt.date <= date_range[1])
-    ]
 
 # ==============================================
-# 4. MAIN TABS
+# 4. DASHBOARD LAYOUT
 # ==============================================
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📊 Overview", "🔍 Data Explorer", "📈 Deep Dive EDA", "🔮 AQI Predictor", "🗺️ Geospatial"
-])
+# Create 3 tabs for different dashboard sections
+tab1, tab2, tab3 = st.tabs(["📊 Overview", "📈 Analytics", "🔮 Predictor"])
 
-# --- TAB 1: OVERVIEW ---
+# --- TAB 1: OVERVIEW SECTION ---
 with tab1:
-    st.markdown('<h2 class="section-header">Dashboard Overview</h2>', unsafe_allow_html=True)
+    # Create 3 columns for metric cards
+    col1, col2, col3 = st.columns(3)
     
-    # Key Metrics
-    col1, col2, col3, col4 = st.columns(4)
+    # Determine the target column (AQI if present, otherwise the last numeric column)
     target_col = 'AQI' if 'AQI' in df.columns else df.select_dtypes(include=np.number).columns[-1]
     
-    with col1:
-        st.markdown(f'<div class="metric-card"><h3>Records</h3><h2>{len(filtered_df):,}</h2></div>', unsafe_allow_html=True)
-    with col2:
-        avg_val = filtered_df[target_col].mean()
-        st.markdown(f'<div class="metric-card"><h3>Avg {target_col}</h3><h2>{avg_val:.1f}</h2></div>', unsafe_allow_html=True)
-    with col3:
-        max_val = filtered_df[target_col].max()
-        st.markdown(f'<div class="metric-card"><h3>Max {target_col}</h3><h2>{max_val:.1f}</h2></div>', unsafe_allow_html=True)
-    with col4:
-        cities_count = filtered_df['city'].nunique() if 'city' in df.columns else 1
-        st.markdown(f'<div class="metric-card"><h3>Cities</h3><h2>{cities_count}</h2></div>', unsafe_allow_html=True)
-
+    # Column 1: Display Total Records count
+    col1.markdown(f'<div class="metric-card"><h3>Records</h3><h2>{len(filtered_df):,}</h2></div>', unsafe_allow_html=True)
+    
+    # Column 2: Display Average AQI
+    col2.markdown(f'<div class="metric-card"><h3>Avg {target_col}</h3><h2>{filtered_df[target_col].mean():.1f}</h2></div>', unsafe_allow_html=True)
+    
+    # Column 3: Display Maximum AQI
+    col3.markdown(f'<div class="metric-card"><h3>Max {target_col}</h3><h2>{filtered_df[target_col].max():.1f}</h2></div>', unsafe_allow_html=True)
+    
+    # Add a horizontal separator line
     st.markdown("---")
     
-    # Overview Charts
-    c1, c2 = st.columns([2, 1])
-    with c1:
-        st.subheader("📈 Trend Over Time")
-        if 'date' in filtered_df.columns:
-            # Resample for cleaner chart if too many points
-            chart_df = filtered_df.set_index('date').resample('M')[target_col].mean().reset_index()
-            fig = px.line(chart_df, x='date', y=target_col, markers=True, line_shape='spline',
-                          color_discrete_sequence=['#3B82F6'])
-            fig.update_layout(height=350, margin=dict(l=20, r=20, t=20, b=20))
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("No date column found for time series.")
-            
-    with c2:
-        st.subheader("📉 Distribution")
-        fig = px.histogram(filtered_df, x=target_col, nbins=30, color_discrete_sequence=['#10B981'])
-        fig.update_layout(height=350, margin=dict(l=20, r=20, t=20, b=20), showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
+    # Display a subheader
+    st.subheader("Data Preview")
+    
+    # Show the first 50 rows of the filtered dataframe
+    st.dataframe(filtered_df.head(50), use_container_width=True)
 
-# --- TAB 2: DATA EXPLORER ---
+# --- TAB 2: ANALYTICS SECTION ---
 with tab2:
-    st.markdown('<h2 class="section-header">Data Explorer</h2>', unsafe_allow_html=True)
+    # Create 2 columns for charts
+    col1, col2 = st.columns(2)
     
-    # Interactive Table
-    with st.expander("Filter & Sort Options", expanded=True):
-        c1, c2 = st.columns(2)
-        sort_col = c1.selectbox("Sort By", filtered_df.columns)
-        sort_asc = c2.radio("Order", ["Ascending", "Descending"]) == "Ascending"
-    
-    st.dataframe(
-        filtered_df.sort_values(sort_col, ascending=sort_asc),
-        use_container_width=True,
-        height=500
-    )
-
-# --- TAB 3: DEEP DIVE EDA ---
-with tab3:
-    st.markdown('<h2 class="section-header">Exploratory Data Analysis</h2>', unsafe_allow_html=True)
-    
-    type_ = st.selectbox("Analysis Type", ["Correlation Heatmap", "Bivariate Scatter", "Box Plots"])
-    
-    if type_ == "Correlation Heatmap":
-        num_df = filtered_df.select_dtypes(include=np.number)
-        if len(num_df.columns) > 1:
-            corr = num_df.corr()
-            fig = px.imshow(corr, text_auto='.2f', color_continuous_scale='RdBu_r', aspect='auto')
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("Not enough numeric columns for correlation.")
-            
-    elif type_ == "Bivariate Scatter":
-        num_cols = filtered_df.select_dtypes(include=np.number).columns
-        c1, c2 = st.columns(2)
-        x_axis = c1.selectbox("X Axis", num_cols, index=0)
-        y_axis = c2.selectbox("Y Axis", num_cols, index=min(1, len(num_cols)-1))
-        
-        fig = px.scatter(filtered_df, x=x_axis, y=y_axis, color=target_col, 
-                         color_continuous_scale='Viridis', opacity=0.7)
-        st.plotly_chart(fig, use_container_width=True)
-        
-    elif type_ == "Box Plots":
-        num_cols = filtered_df.select_dtypes(include=np.number).columns
-        y_col = st.selectbox("Select Variable", num_cols)
-        # Group by Year or Month if available, else City
-        if 'city' in filtered_df.columns:
-            x_col = 'city'
-        else:
-            x_col = None
-            
-        fig = px.box(filtered_df, x=x_col, y=y_col, color=x_col)
-        st.plotly_chart(fig, use_container_width=True)
-
-# --- TAB 4: PREDICTOR ---
-with tab4:
-    st.markdown('<h2 class="section-header">🔮 AQI Predictor</h2>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([1, 2])
-    
+    # Left Column: Distribution Chart
     with col1:
-        st.markdown("### Input Parameters")
-        input_data = {}
-        # Dynamic inputs based on numeric columns (excluding target/dates)
-        feature_cols = [c for c in df.select_dtypes(include=np.number).columns 
-                        if c not in [target_col, 'year', 'month', 'day']]
+        st.subheader("Pollutant Distribution")
+        # Dropdown to select which numeric column to visualize
+        num_col = st.selectbox("Select Column", filtered_df.select_dtypes(include=np.number).columns)
+        # Create a histogram using Plotly Express
+        fig = px.histogram(filtered_df, x=num_col, nbins=30, color_discrete_sequence=['#3B82F6'])
+        # Render the chart
+        st.plotly_chart(fig, use_container_width=True)
         
-        for col in feature_cols[:6]: # Limit to top 6 features for UI cleanliness
-            min_v = float(df[col].min())
-            max_v = float(df[col].max())
-            mean_v = float(df[col].mean())
-            input_data[col] = st.slider(f"{col}", min_v, max_v, mean_v)
-            
-        predict_btn = st.button("Predict AQI", type="primary")
-
+    # Right Column: Correlation Matrix
     with col2:
-        st.markdown("### Prediction Result")
-        if predict_btn:
-            if model:
-                try:
-                    # Prepare input dataframe
-                    input_df = pd.DataFrame([input_data])
-                    # Add dummy values for missing columns expected by model
-                    # (In a real scenario, you'd match the exact training features)
-                    # Here we assume the model uses the features we collected
-                    
-                    pred = model.predict(input_df)[0]
-                    
-                    # Display Result
-                    st.markdown(f'''
-                    <div style="text-align: center; padding: 2rem; border-radius: 15px; 
-                                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                        <h1 style="font-size: 4rem; margin: 0;">{pred:.0f}</h1>
-                        <h3>Predicted {target_col}</h3>
-                    </div>
-                    ''', unsafe_allow_html=True)
-                    
-                    # Context
-                    if pred <= 50: status, color = "Good", "green"
-                    elif pred <= 100: status, color = "Moderate", "gold"
-                    elif pred <= 200: status, color = "Poor", "orange"
-                    else: status, color = "Severe", "red"
-                    
-                    st.markdown(f"### Status: <span style='color:{color}'>{status}</span>", unsafe_allow_html=True)
-                    
-                except Exception as e:
-                    st.error(f"Prediction Error: {e}")
-                    st.info("Ensure the input features match the trained model.")
-            else:
-                st.warning("⚠️ No machine learning model loaded. Please train/save a model first.")
-                # Fallback dummy prediction for demo
-                st.info("Demonstration Prediction (Random):")
-                st.metric("Predicted AQI", f"{np.random.randint(50, 300)}")
-
-# --- TAB 5: GEOSPATIAL ---
-with tab5:
-    st.markdown('<h2 class="section-header">Geospatial Analysis</h2>', unsafe_allow_html=True)
-    
-    if 'latitude' in filtered_df.columns and 'longitude' in filtered_df.columns:
-        fig = px.scatter_mapbox(filtered_df, lat="latitude", lon="longitude", color=target_col,
-                                size=target_col, color_continuous_scale=px.colors.cyclical.IceFire,
-                                zoom=3, mapbox_style="open-street-map",
-                                hover_name="city" if 'city' in filtered_df.columns else None)
-        fig.update_layout(height=600, margin={"r":0,"t":0,"l":0,"b":0})
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("No Latitude/Longitude columns found in the dataset for map visualization.")
-        st.write("Using simulated map for demonstration:")
+        st.subheader("Correlation Matrix")
+        # Select only numeric columns for correlation calculation
+        num_df = filtered_df.select_dtypes(include=np.number)
         
-        # Simulated Map Data
-        sim_data = pd.DataFrame({
-            'lat': [28.61, 19.07, 13.08, 22.57, 12.97],
-            'lon': [77.20, 72.87, 80.27, 88.36, 77.59],
-            'city': ['Delhi', 'Mumbai', 'Chennai', 'Kolkata', 'Bangalore'],
-            'AQI': [300, 150, 120, 200, 90]
-        })
-        fig = px.scatter_mapbox(sim_data, lat="lat", lon="lon", color="AQI", size="AQI",
-                                zoom=3, mapbox_style="open-street-map", hover_name="city")
-        fig.update_layout(height=500)
-        st.plotly_chart(fig, use_container_width=True)
+        # Ensure there is more than 1 numeric column to calculate correlation
+        if len(num_df.columns) > 1:
+            # Create a heatmap using Plotly Express with a Red-Blue color scale
+            fig_corr = px.imshow(num_df.corr(), text_auto='.2f', color_continuous_scale='RdBu_r')
+            # Render the chart
+            st.plotly_chart(fig_corr, use_container_width=True)
 
-# Footer
-st.markdown("---")
-st.markdown("<div style='text-align: center; color: grey;'>© 2025 India Air Quality Project | Built with Streamlit</div>", unsafe_allow_html=True)
-"""
-
-# Write the file
-with open(app_file_path, "w") as f:
-    f.write(app_code)
-
-print("✅ App file created successfully!")
-print(f"File location: {app_file_path}")
-print("\nTo run this app locally:")
-print(f"1. Download '{os.path.basename(app_file_path)}' and your data/model files.")
-print("2. Open terminal/cmd.")
-print("3. Run: streamlit run app.py")
+# --- TAB 3: PREDICTOR SECTION ---
+with tab3:
+    # Display subheader
+    st.subheader("Real-time AQI Predictor")
+    
+    # Check if a model was successfully loaded
+    if model:
+        # Create 2 columns for input sliders
+        col1, col2 = st.columns(2)
+        # Dictionary to store user inputs
+        inputs = {}
+        
+        # Identify numeric feature columns (excluding target and dates) for the inputs
+        features = [c for c in df.select_dtypes(include=np.number).columns if c not in ['AQI', 'target', 'year', 'month']]
+        
+        # Loop through the first 6 features to create sliders
+        for i, col in enumerate(features[:6]):
+            # Place slider in col1 if index is even, col2 if odd (creates a grid layout)
+            with col1 if i % 2 == 0 else col2:
+                # Create a slider with min, max, and mean values from the data
+                inputs[col] = st.slider(f"{col}", float(df[col].min()), float(df[col].max()), float(df[col].mean()))
+        
+        # Create a button to trigger prediction
+        if st.button("Predict AQI", type="primary"):
+            try:
+                # Convert user inputs dictionary to a DataFrame (single row)
+                input_df = pd.DataFrame([inputs])
+                
+                # Add missing time columns (year/month) with dummy values if the model expects them
+                for c in ['year', 'month']: 
+                    if c not in input_df: input_df[c] = 0
+                
+                # Make a prediction using the loaded model
+                pred = model.predict(input_df)[0]
+                
+                # Display the result in a success box
+                st.success(f"Predicted AQI: {pred:.2f}")
+                
+                # If AQI is good (<50), show balloons animation
+                if pred < 50: st.balloons()
+            except Exception as e:
+                # Show error message if prediction fails (e.g., mismatch columns)
+                st.error(f"Prediction error: {e}")
+    else:
+        # Warning if no model file was found
+        st.warning("⚠️ No machine learning model found (xgboost_aqi_model.pkl). Train the model first or upload it.")
+        # Show a dummy number so the user sees how it would look
+        st.info("Demonstration Mode: Predicted AQI = " + str(np.random.randint(50, 150)))
