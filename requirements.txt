@@ -1,4 +1,8 @@
-matplotlib>=3.5.0
-streamlit>=1.28.0
-pandas>=1.5.0
-numpy>=1.24.0
+# Read current requirements
+pip install -r requirements.txt
+
+# Install additional packages
+pip install matplotlib seaborn
+
+# Update requirements.txt
+pip freeze > requirements.txt
