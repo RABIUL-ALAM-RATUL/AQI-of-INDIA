@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -6,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import r2_score
 import joblib
 import warnings
@@ -15,15 +15,15 @@ warnings.filterwarnings("ignore")
 st.set_page_config(page_title="India Air Quality", layout="wide")
 st.markdown("""
 <style>
-    .header {background: linear-gradient(90deg, #001f3f, #003366); padding: 30px; border-radius: 15px; 
-             color: white; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.4); margin-bottom: 40px;}
-    .header img {height: 100px;}
-    .title {font-size: 52px; font-weight: bold; margin: 0;}
-    .subtitle {font-size: 26px; margin: 10px 0;}
-    .stTabs [data-testid="stTab"] {background: #001f3f; color: white; border-radius: 12px 12px 0 0; padding: 16px 32px; font-weight: bold;}
+    .header {background: linear-gradient(90deg, #001f3f, #003366); padding: 35px; border-radius: 15px; 
+             color: white; text-align: center; box-shadow: 0 12px 35px rgba(0,0,0,0.4); margin-bottom: 40px;}
+    .header img {height: 110px; margin-right: 25px;}
+    .title {font-size: 56px; font-weight: bold; margin: 0;}
+    .subtitle {font-size: 28px; margin: 12px 0; color: #e2e8f0;}
+    .stTabs [data-testid="stTab"] {background: #001f3f; color: white; border-radius: 12px 12px 0 0; padding: 16px 34px; font-weight: bold;}
     .stTabs [aria-selected="true"] {background: #0074D9;}
-    .metric-card {background: linear-gradient(135deg, #0074D9, #001f3f); padding: 30px;
-                  border-radius: 20px; color: white; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3);}
+    .metric-card {background: linear-gradient(135deg, #0074D9, #001f3f); padding: 35px;
+                  border-radius: 22px; color: white; text-align: center; box-shadow: 0 12px 30px rgba(0,0,0,0.3);}
 </style>
 
 <div class="header">
@@ -33,30 +33,32 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Load Data — 100% Safe for any column names
+# Load & Clean Data — 100% Safe for Your CSV
 @st.cache_data
 def load_data():
     df = pd.read_csv("India_Air_Quality_Final_Processed.csv")
     
-    # Auto-detect and rename key columns
-    if 'AQI' not in df.columns:
-        aqi_col = [c for c in df.columns if 'AQI' in c.upper()]
-        df.rename(columns={aqi_col[0]: 'AQI'}, inplace=True)
+    # Fix column names safely
+    df.columns = [c.strip().replace(' ', '_').replace('.', '') for c in df.columns]
     
-    if 'City' not in df.columns:
-        city_col = [c for c in df.columns if 'CITY' in c.upper()]
-        df.rename(columns={city_col[0]: 'City'}, inplace=True)
+    # Find and rename key columns
+    date_col = next((c for c in df.columns if 'date' in c.lower()), None)
+    city_col = next((c for c in df.columns if 'city' in c.lower()), None)
+    aqi_col = next((c for c in df.columns if 'aqi' in c.lower() and 'bucket' not in c.lower()), None)
     
-    if 'Date' not in df.columns:
-        date_col = [c for c in df.columns if 'DATE' in c.upper()]
-        df['Date'] = pd.to_datetime(df[date_col[0]], errors='coerce')
-        df.drop(columns=date_col, inplace=True)
-    else:
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+    if date_col: df.rename(columns={date_col: 'Date'}, inplace=True)
+    if city_col: df.rename(columns={city_col: 'City'}, inplace=True)
+    if aqi_col: df.rename(columns={aqi_col: 'AQI'}, inplace=True)
     
-    return df
+    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+    
+    # Drop non-numeric columns except AQI
+    non_numeric = df.select_dtypes(exclude=['number']).columns
+    df_numeric = df.drop(columns=[c for c in non_numeric if c not in ['AQI', 'Date', 'City']], errors='ignore')
+    
+    return df, df_numeric
 
-df = load_data()
+df, df_clean = load_data()
 
 # Tabs
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
@@ -71,35 +73,36 @@ with tab1:
     with c3: st.markdown(f'<div class="metric-card">Avg AQI<br><h2>{df["AQI"].mean():.1f}</h2></div>', unsafe_allow_html=True)
     with c4: st.markdown(f'<div class="metric-card">Peak AQI<br><h2>{df["AQI"].max():.0f}</h2></div>', unsafe_allow_html=True)
     
-    fig = px.line(df.sample(min(5000, len(df))), x='Date', y='AQI', color='City', title="AQI Trends")
+    fig = px.line(df.sample(min(5000, len(df))), x='Date', y='AQI', color='City', title="National AQI Trends")
     st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
     st.header("Exploratory Data Analysis")
-    numeric = df.select_dtypes(include='number').columns
-    fig = px.imshow(df[numeric].corr(), title="Pollutant Correlations", color_continuous_scale="Blues")
+    numeric_cols = df_clean.select_dtypes(include='number').columns
+    fig = px.imshow(df_clean[numeric_cols].corr(), title="Pollutant Correlation Matrix", color_continuous_scale="Blues")
     st.plotly_chart(fig, use_container_width=True)
 
 with tab3:
     st.header("Seasonal Patterns")
     df['Season'] = df['Date'].dt.month.map({12:'Winter',1:'Winter',2:'Winter',3:'Spring',4:'Spring',5:'Spring',
                                             6:'Summer',7:'Summer',8:'Summer',9:'Monsoon',10:'Monsoon',11:'Monsoon'})
-    fig = px.box(df, x='Season', y='AQI', color='Season', title="AQI by Season")
+    fig = px.box(df, x='Season', y='AQI', color='Season', title="AQI Distribution by Season")
     st.plotly_chart(fig, use_container_width=True)
 
 with tab4:
     st.header("Model Training")
-    X = df.drop(['AQI','Date','City','AQI_Bucket'], axis=1, errors='ignore')
-    y = df['AQI']
+    X = df_clean.drop(columns=['AQI'], errors='ignore')
+    y = df_clean['AQI']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    if st.button("Train Random Forest", type="primary"):
-        model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
-        model.fit(X_train, y_train)
-        pred = model.predict(X_test)
-        r2 = r2_score(y_test, pred)
-        joblib.dump(model, "aqi_model.pkl")
-        st.success(f"Trained! R² = {r2:.4f}")
+    if st.button("Train Random Forest Model", type="primary"):
+        with st.spinner("Training..."):
+            model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+            model.fit(X_train, y_train)
+            pred = model.predict(X_test)
+            r2 = r2_score(y_test, pred)
+            joblib.dump(model, "aqi_model.pkl")
+        st.success(f"Model Trained! R² = {r2:.4f}")
         st.balloons()
 
 with tab5:
@@ -110,12 +113,12 @@ with tab5:
         pm10 = st.slider("PM10", 0, 600, 220)
         no2  = st.slider("NO₂", 0, 200, 65)
         
-        if st.button("Predict", type="primary"):
+        if st.button("Predict AQI", type="primary"):
             input_data = np.array([[pm25, pm10, no2] + [50]*(len(X.columns)-3)])
             pred = model.predict(input_data)[0]
-            st.markdown(f"<h1 style='color:#10b981'>AQI: {pred:.1f}</h1>", unsafe_allow_html=True)
+            st.markdown(f"<h1 style='color:#10b981'>Predicted AQI: {pred:.1f}</h1>", unsafe_allow_html=True)
     except:
-        st.info("Train model first")
+        st.info("Train the model first")
 
 with tab6:
     st.header("Pollution Hotspots")
@@ -130,6 +133,6 @@ with tab6:
     st.plotly_chart(fig, use_container_width=True)
 
 with tab7:
-    st.header("About")
+    st.header("About This Project")
     st.markdown("**CMP7005 – Programming for Data Analysis**  \nStudent ID: ST20316895  \n2025-26  \nCardiff Metropolitan University")
     st.image("https://www.cardiffmet.ac.uk/PublishingImages/logo.png", width=300)
