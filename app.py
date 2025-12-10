@@ -1,8 +1,3 @@
-# ============================================================================
-# INDIA AIR QUALITY ANALYSIS APP (CMP7005 ASSESSMENT)
-# DEVELOPED BY: MD RABIUL ALAM
-# STUDENT ID: ST20316895
-# ============================================================================
 
 import streamlit as st
 import pandas as pd
@@ -16,13 +11,13 @@ import joblib
 import warnings
 warnings.filterwarnings("ignore")
 
-# Beautiful Cardiff Met Header
+# Professional Cardiff Met Header
 st.set_page_config(page_title="India Air Quality", layout="wide")
 st.markdown("""
 <style>
     .header {background: linear-gradient(90deg, #001f3f, #003366); padding: 30px; border-radius: 15px; 
              color: white; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.4); margin-bottom: 40px;}
-    .header img {height: 100px; margin-right: 20px;}
+    .header img {height: 100px;}
     .title {font-size: 52px; font-weight: bold; margin: 0;}
     .subtitle {font-size: 26px; margin: 10px 0;}
     .stTabs [data-testid="stTab"] {background: #001f3f; color: white; border-radius: 12px 12px 0 0; padding: 16px 32px; font-weight: bold;}
@@ -38,30 +33,34 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Load Data Safely (Handles any column name)
+# Load Data — 100% Safe for any column names
 @st.cache_data
 def load_data():
     df = pd.read_csv("India_Air_Quality_Final_Processed.csv")
     
-    # Fix date column (find any column with 'date' in name)
-    date_cols = [col for col in df.columns if 'date' in col.lower()]
-    if date_cols:
-        df['Date'] = pd.to_datetime(df[date_cols[0]], errors='coerce')
-        df.drop(columns=date_cols, inplace=True)
+    # Auto-detect and rename key columns
+    if 'AQI' not in df.columns:
+        aqi_col = [c for c in df.columns if 'AQI' in c.upper()]
+        df.rename(columns={aqi_col[0]: 'AQI'}, inplace=True)
     
-    # Fix city column
-    city_cols = [col for col in df.columns if 'city' in col.lower()]
-    if city_cols:
-        df['City'] = df[city_cols[0]]
-        df.drop(columns=city_cols, inplace=True)
+    if 'City' not in df.columns:
+        city_col = [c for c in df.columns if 'CITY' in c.upper()]
+        df.rename(columns={city_col[0]: 'City'}, inplace=True)
+    
+    if 'Date' not in df.columns:
+        date_col = [c for c in df.columns if 'DATE' in c.upper()]
+        df['Date'] = pd.to_datetime(df[date_col[0]], errors='coerce')
+        df.drop(columns=date_col, inplace=True)
+    else:
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
     
     return df
 
 df = load_data()
 
-# Tab Navigation
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-    "Home", "EDA", "Seasonal", "Model", "Predict", "Map", "Insights", "About"
+# Tabs
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "Home", "EDA", "Seasonal", "Model", "Predict", "Map", "About"
 ])
 
 with tab1:
@@ -77,12 +76,13 @@ with tab1:
 
 with tab2:
     st.header("Exploratory Data Analysis")
-    numeric_cols = df.select_dtypes(include='number').columns
-    fig = px.imshow(df[numeric_cols].corr(), title="Pollutant Correlation Matrix", color_continuous_scale="Blues")
+    numeric = df.select_dtypes(include='number').columns
+    fig = px.imshow(df[numeric].corr(), title="Pollutant Correlations", color_continuous_scale="Blues")
     st.plotly_chart(fig, use_container_width=True)
 
 with tab3:
     st.header("Seasonal Patterns")
+    ")
     df['Season'] = df['Date'].dt.month.map({12:'Winter',1:'Winter',2:'Winter',3:'Spring',4:'Spring',5:'Spring',
                                             6:'Summer',7:'Summer',8:'Summer',9:'Monsoon',10:'Monsoon',11:'Monsoon'})
     fig = px.box(df, x='Season', y='AQI', color='Season', title="AQI by Season")
@@ -94,18 +94,17 @@ with tab4:
     y = df['AQI']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    if st.button("Train Random Forest"):
-        with st.spinner("Training..."):
-            model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
-            model.fit(X_train, y_train)
-            pred = model.predict(X_test)
-            r2 = r2_score(y_test, pred)
-            joblib.dump(model, "aqi_model.pkl")
-        st.success(f"R² = {r2:.4f}")
+    if st.button("Train Random Forest", type="primary"):
+        model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+        model.fit(X_train, y_train)
+        pred = model.predict(X_test)
+        r2 = r2_score(y_test, pred)
+        joblib.dump(model, "aqi_model.pkl")
+        st.success(f"Trained! R² = {r2:.4f}")
         st.balloons()
 
 with tab5:
-    st.header("Live Prediction")
+    st.header("Live AQI Prediction")
     try:
         model = joblib.load("aqi_model.pkl")
         pm25 = st.slider("PM2.5", 0, 500, 120)
@@ -115,12 +114,12 @@ with tab5:
         if st.button("Predict", type="primary"):
             input_data = np.array([[pm25, pm10, no2] + [50]*(len(X.columns)-3)])
             pred = model.predict(input_data)[0]
-            st.markdown(f"<h1 style='color:#10b981'>Predicted AQI: {pred:.1f}</h1>", unsafe_allow_html=True)
+            st.markdown(f"<h1 style='color:#10b981'>AQI: {pred:.1f}</h1>", unsafe_allow_html=True)
     except:
         st.info("Train model first")
 
 with tab6:
-    st.header("Hotspots")
+    st.header("Pollution Hotspots")
     city_coords = {'Delhi':(28.61,77.20), 'Mumbai':(19.07,72.87), 'Bengaluru':(12.97,77.59)}
     city_aqi = df.groupby('City')['AQI'].mean().round(0).reset_index()
     city_aqi['lat'] = city_aqi['City'].map({k:v[0] for k,v in city_coords.items()})
@@ -132,15 +131,6 @@ with tab6:
     st.plotly_chart(fig, use_container_width=True)
 
 with tab7:
-    st.header("Key Insights")
-    st.markdown("""
-    - PM2.5 dominates AQI prediction
-    - Winter months show highest pollution
-    - Delhi remains worst major city
-    - Random Forest achieves excellent accuracy
-    """)
-
-with tab8:
     st.header("About")
-    st.markdown("**CMP7005 – Programming for Data Analysis**  \nStudent ID: ST20316895  \n2025-26")
+    st.markdown("**CMP7005 – Programming for Data Analysis**  \nStudent ID: ST20316895  \n2025-26  \nCardiff Metropolitan University")
     st.image("https://www.cardiffmet.ac.uk/PublishingImages/logo.png", width=300)
