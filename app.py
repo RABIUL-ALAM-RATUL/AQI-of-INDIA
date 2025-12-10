@@ -82,7 +82,6 @@ with tab2:
 
 with tab3:
     st.header("Seasonal Patterns")
-    ")
     df['Season'] = df['Date'].dt.month.map({12:'Winter',1:'Winter',2:'Winter',3:'Spring',4:'Spring',5:'Spring',
                                             6:'Summer',7:'Summer',8:'Summer',9:'Monsoon',10:'Monsoon',11:'Monsoon'})
     fig = px.box(df, x='Season', y='AQI', color='Season', title="AQI by Season")
