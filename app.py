@@ -89,12 +89,15 @@ def load_data():
 
         # Drop rows where the Target (AQI) is missing
         # We cannot train or display trends if the main variable is NaN
-        if 'AQI' in df.columns:
+        # Also handle lowercase 'aqi' if present
+        aqi_col = next((c for c in df.columns if c.lower() == 'aqi'), None)
+        if aqi_col:
+            df = df.rename(columns={aqi_col: 'AQI'})
             df = df.dropna(subset=['AQI'])
         
         return df
     except Exception as e:
-        st.error(f"Error loading data: {e}. Please check if 'India_Air_Quality_Final_Processed.csv' exists.")
+        st.error(f"Error loading data: {e}. Please ensure 'India_Air_Quality_Final_Processed.csv' is in the same folder.")
         return pd.DataFrame()
 
 # Execute Load
