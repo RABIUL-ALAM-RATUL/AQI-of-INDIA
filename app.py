@@ -74,16 +74,17 @@ with tab1:
     with c3: st.markdown(f'<div class="metric-card">Avg AQI<br><h2>{df["aqi"].mean():.1f}</h2></div>', unsafe_allow_html=True)
     with c4: st.markdown(f'<div class="metric-card">Peak AQI<br><h2>{df["aqi"].max():.0f}</h2></div>', unsafe_allow_html=True)
     
-    # Sample more data to show all cities
-    sample_size = min(10000, len(df))
-    fig = px.line(df.sample(sample_size), x='date', y='aqi', color='city', title="AQI Trends Across All Cities")
+    # Show ALL cities (thin lines + opacity for performance)
+    fig = px.line(df, x='date', y='aqi', color='city', title="AQI Trends Across All 26 Cities")
+    fig.update_traces(line=dict(width=1), opacity=0.6)
     st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
     st.header("Exploratory Data Analysis")
     numeric_cols = df.select_dtypes(include='number').columns.drop('aqi', errors='ignore')
-    corr_matrix = df[numeric_cols].corr()  # <-- Fixed: calculate corr first
-    fig = px.imshow(corr_matrix, title="Pollutant Correlation Matrix", color_continuous_scale="Blues")
+    corr = df[numeric_cols].corr()
+    fig = px.imshow(corr, text_auto=True, color_continuous_scale='RdBu_r', 
+                    title="Pollutant Correlation Matrix", height=800, aspect="auto")
     st.plotly_chart(fig, use_container_width=True)
 
 with tab3:
