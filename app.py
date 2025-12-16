@@ -74,9 +74,9 @@ with tab1:
     with c3: st.markdown(f'<div class="metric-card">Avg AQI<br><h2>{df["aqi"].mean():.1f}</h2></div>', unsafe_allow_html=True)
     with c4: st.markdown(f'<div class="metric-card">Peak AQI<br><h2>{df["aqi"].max():.0f}</h2></div>', unsafe_allow_html=True)
     
-    # Show ALL cities (thin lines + opacity for performance)
-    fig = px.line(df, x='date', y='aqi', color='city', title="AQI Trends Across All 26 Cities")
-    fig.update_traces(line=dict(width=1), opacity=0.6)
+    # Show full data (thin lines for performance)
+    fig = px.line(df, x='date', y='aqi', color='city', title=f"AQI Trends Across {df['city'].nunique()} Cities")
+    fig.update_traces(line=dict(width=1), opacity=0.7)
     st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
