@@ -4,6 +4,9 @@
 **Module:** CMP7005 (Programming for Data Analysis)  
 **Academic Year:** 2025-26
 
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/blob/main/WRT1_ST20316895_CMP7005_S1_PRAC1_2025_26.ipynb)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://aqi-of-india-md-rabiul-alam-st20316895-wrt1.streamlit.app/)
+
 ## Project Overview
 This project provides a comprehensive analysis of air quality data across 26 Indian cities from 2015 to 2020. It combines robust data preprocessing, exploratory data analysis (EDA), and machine learning to predict Air Quality Index (AQI) levels. The final output includes a deployment-ready Streamlit dashboard for real-time visualization and prediction.
 
