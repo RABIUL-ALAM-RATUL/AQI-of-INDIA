@@ -96,14 +96,7 @@ with tab1:
 with tab2:
     st.header("Exploratory Data Analysis")
     numeric_cols = df.select_dtypes(include='number').columns.drop('aqi', errors='ignore')
-    fig = px.imshow(
-            corr, 
-            text_auto=True, 
-            color_continuous_scale='RdBu_r', 
-            title="Pollutant Correlation Matrix",
-            height=800,  # Make it tall enough
-            aspect="auto" # Adapt to container width
-        )
+    fig = px.imshow(df[numeric_cols].corr(), title="Pollutant Correlation Matrix", color_continuous_scale="Blues")
     st.plotly_chart(fig, use_container_width=True)
 
 with tab3:
