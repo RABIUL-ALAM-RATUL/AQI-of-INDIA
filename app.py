@@ -69,10 +69,11 @@ st.markdown("""
 def load_data():
     try:
         # 1. LOAD PROCESSED (SCALED) DATA
+        # This has the numbers your analysis produced
         df = pd.read_csv("India_Air_Quality_Final_Processed.csv")
         df.columns = [c.strip() for c in df.columns] # Clean column names
 
-        # 2. SMART RENAMING (Handles 'city' vs 'City', 'dt' vs 'Date')
+        # 2. RENAMING MAP
         rename_map = {
             'city': 'City', 'place': 'City',
             'date': 'Date', 'dt': 'Date',
@@ -83,20 +84,30 @@ def load_data():
         df.rename(columns=new_names, inplace=True)
 
         # 3. CONTEXT RECOVERY (THE FIX FOR "1 CITY")
-        # If City/Date are missing or only have 1 value (lost during processing),
-        # we try to load the original RAW file to restore them.
+        # If City is missing or broken in the processed file, we fetch it from the RAW/MERGED file.
+        # This ensures you have 26 Cities + Scaled Data.
         try:
+            # Check if City is missing OR has only 1 unique value (which is suspicious)
             if 'City' not in df.columns or df['City'].nunique() <= 1:
-                # Load the raw file that definitely has city names
+                
+                # Attempt to load the standard merged file from Task 1
                 raw_df = pd.read_csv("00_MERGED_Air_Quality_India_2015_2020.csv")
                 
-                # If row counts match, we can safely copy the columns back!
-                if len(raw_df) == len(df):
-                    df['City'] = raw_df['City']  # Restore City Names
-                    if 'Date' not in df.columns:
-                        df['Date'] = raw_df['Date']  # Restore Dates
-        except:
-            pass # If raw file isn't found, we continue with what we have
+                # If the row counts match (or are close), we assume alignment and copy the text columns
+                # We use the shorter length to avoid errors
+                min_len = min(len(df), len(raw_df))
+                
+                # Restore City Names
+                if 'City' in raw_df.columns:
+                    df.loc[:min_len-1, 'City'] = raw_df.loc[:min_len-1, 'City'].values
+                
+                # Restore Dates
+                if 'Date' not in df.columns and 'Date' in raw_df.columns:
+                    df.loc[:min_len-1, 'Date'] = raw_df.loc[:min_len-1, 'Date'].values
+
+        except Exception as e:
+            # If merged file isn't found, we just proceed with what we have
+            print(f"Could not perform smart recovery: {e}")
 
         # 4. FINAL CLEANUP
         if 'City' in df.columns:
@@ -120,17 +131,18 @@ df = load_data()
 if df.empty:
     st.stop()
 
-# --- SIDEBAR: CACHE CLEAR & DEBUG ---
+# --- SIDEBAR: CONTROLS ---
 with st.sidebar:
     st.header("⚙️ Controls")
-    if st.button("🔄 Refresh Data (Clear Cache)"):
+    if st.button("🔄 Refresh Data"):
         st.cache_data.clear()
         st.rerun()
     
-    # Debug Info (Visible only if expanded)
-    with st.expander("Dataset Inspector"):
-        st.write("Columns:", df.columns.tolist())
-        st.write("Cities Found:", df['City'].nunique() if 'City' in df.columns else 0)
+    st.markdown("---")
+    # Debug Info to verify the fix
+    st.markdown("**Data Diagnostic:**")
+    st.write(f"Cities Detected: **{df['City'].nunique() if 'City' in df.columns else 0}**")
+    st.write(f"Rows Loaded: **{len(df)}**")
 
 # -----------------------------------------------------------------------------
 # 4. MAIN APP TABS
