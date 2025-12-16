@@ -7,14 +7,15 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score
 import joblib
+import os
 import warnings
 warnings.filterwarnings("ignore")
 
-# Cardiff Met Professional Header
-st.set_page_config(page_title="India Air Quality Analytics", layout="wide")
+# Professional Cardiff Met Header
+st.set_page_config(page_title="India Air Quality", layout="wide")
 st.markdown("""
 <style>
-    .header {background: linear-gradient(90deg, #001f3f, #003366); padding: 35px; border-radius: 15px; 
+    .header {background: linear-gradient(90deg, #001f3f, #003366); padding: 35px; border-radius: 18px; 
              color: white; text-align: center; box-shadow: 0 12px 35px rgba(0,0,0,0.4); margin-bottom: 40px;}
     .header img {height: 110px; margin-right: 25px;}
     .title {font-size: 56px; font-weight: bold; margin: 0;}
@@ -32,35 +33,25 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Load Data — 100% Safe (No NaN, No String Errors)
+# Load & Merge Data from City CSVs (26 Cities)
 @st.cache_data
 def load_data():
-    df = pd.read_csv("India_Air_Quality_Final_Processed.csv")
+    city_files = [f for f in os.listdir('.') if f.endswith('_data.csv')]
+    df = pd.concat([pd.read_csv(f) for f in city_files], ignore_index=True)
     
     # Standardize columns
-    df.columns = [c.strip().lower().replace(' ', '_') for c in df.columns]
+    df.columns = [c.strip().lower().replace(' ', '_').replace('.', '') for c in df.columns]
     
-    # Rename key columns
-    if 'aqi' not in df.columns:
-        aqi_cols = [c for c in df.columns if 'aqi' in c and 'bucket' not in c]
-        if aqi_cols: df.rename(columns={aqi_cols[0]: 'aqi'}, inplace=True)
-    
-    if 'date' not in df.columns:
-        date_cols = [c for c in df.columns if 'date' in c]
-        if date_cols: df.rename(columns={date_cols[0]: 'date'}, inplace=True)
-    
-    if 'city' not in df.columns:
-        city_cols = [c for c in df.columns if 'city' in c]
-        if city_cols: df.rename(columns={city_cols[0]: 'city'}, inplace=True)
-    
+    # Fix date
     df['date'] = pd.to_datetime(df['date'], errors='coerce')
     
-    # Drop non-numeric for ML, keep for viz
-    numeric_df = df.select_dtypes(include='number').dropna()
+    # Fix numeric
+    numeric_cols = df.select_dtypes(include='number').columns
+    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
     
-    return df, numeric_df
+    return df
 
-df, df_ml = load_data()
+df = load_data()
 
 # Tabs
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
@@ -80,8 +71,15 @@ with tab1:
 
 with tab2:
     st.header("Exploratory Data Analysis")
-    numeric_cols = df.select_dtypes(include='number').columns.drop('aqi', errors='ignore')
-    fig = px.imshow(df[numeric_cols].corr(), title="Pollutant Correlation Matrix", color_continuous_scale="Blues")
+    numeric = df.select_dtypes(include='number').columns.drop('aqi', errors='ignore')
+    fig = px.imshow(
+            corr, 
+            text_auto=True, 
+            color_continuous_scale='RdBu_r', 
+            title="Pollutant Correlation Matrix",
+            height=800,  # Make it tall enough
+            aspect="auto" # Adapt to container width
+        )
     st.plotly_chart(fig, use_container_width=True)
 
 with tab3:
@@ -93,8 +91,8 @@ with tab3:
 
 with tab4:
     st.header("Model Training")
-    X = df_ml.drop(columns=['aqi'], errors='ignore')
-    y = df_ml['aqi']
+    X = df.select_dtypes(include='number').drop(columns=['aqi'], errors='ignore')
+    y = df['aqi']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
     if st.button("Train Random Forest Model", type="primary"):
