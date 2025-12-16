@@ -38,10 +38,13 @@ The project includes a fully functional web app (`app.py`) with the following ta
 - **Model:** Live training interface showing R², MSE, and MAE scores.
 - **Predict:** Real-time AQI calculator using Z-score sliders (-5.0 to +5.0) and a severity gauge.
 - **Map:** Geospatial visualization of pollution hotspots across India.
+## 🎯 Project Goal
+The primary goal of this project is to analyze historical air quality data from 2015 to 2020 across major Indian cities to understand pollution trends, seasonal variations, and key pollutant correlations. By leveraging machine learning, the project aims to build a predictive model capable of estimating the Air Quality Index (AQI) based on specific pollutant concentrations (e.g., PM2.5, NO2, SO2). The final deliverable is an interactive, user-friendly dashboard that empowers stakeholders to visualize these insights and perform real-time AQI predictions.
 
-## Installation & Setup
-
-1. **Clone the Repository:**
-   ```bash
-   git clone <your-repo-url>
-   cd <repo-folder>
+## 🔍 Project Scope
+This project covers the complete data science lifecycle, including:
+1.  **Data Ingestion & Cleaning:** Merging 28 city-specific datasets, handling missing values, and standardizing diverse data formats.
+2.  **Statistical Analysis:** Conducting rigorous Exploratory Data Analysis (EDA) to uncover temporal trends and pollutant relationships.
+3.  **Feature Engineering:** Implementing IQR-based outlier detection, seasonal mapping, and Z-score standardization.
+4.  **Predictive Modeling:** Developing and evaluating a Random Forest Regressor to predict AQI values with high accuracy.
+5.  **Deployment:** creating a deployed web application (Streamlit) that serves the model and visualizations to end-users.
