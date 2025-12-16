@@ -238,7 +238,7 @@ with tab5:
         inputs = []  # List to store user inputs
         cols = st.columns(3)  # Create 3 columns for sliders
         # Loop through the first 9 features to create sliders
-        for i, f in enumerate(X_feats.columns[:9]): 
+        for i, f in enumerate(X_feats.columns): # Removed [:9] to show ALL sliders 
             with cols[i % 3]: 
                 # Create slider with range -5.0 to +5.0
                 inputs.append(st.slider(f"{f} (Z-Score)", -5.0, 5.0, 0.0, 0.1))
