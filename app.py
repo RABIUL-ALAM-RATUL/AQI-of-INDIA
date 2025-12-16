@@ -226,52 +226,77 @@ with tab4:
 
 # TAB 5: PREDICT
 with tab5:
-    st.header("Predict Air Quality")  # Set header
+    st.header("Predict Air Quality")
     try:
         # Load the pre-trained model
         model = joblib.load("aqi_model.pkl")
-        # Identify feature columns needed for prediction
-        X_feats = df.select_dtypes(include='number').drop(columns=['AQI'], errors='ignore')
-        # Info box explaining input range (Z-scores)
-        st.info("ℹ️ **Input: Standardized Z-Scores (-5.0 to +5.0)**")
         
-        inputs = []  # List to store user inputs
-        cols = st.columns(3)  # Create 3 columns for sliders
-        # Loop through the first 9 features to create sliders
-        for i, f in enumerate(X_feats.columns): # Removed [:9] to show ALL sliders 
-            with cols[i % 3]: 
-                # Create slider with range -5.0 to +5.0
-                inputs.append(st.slider(f"{f} (Z-Score)", -5.0, 5.0, 0.0, 0.1))
+        # CRITICAL: Get the exact features the model was trained on.
+        # We derive this from the dataframe used for training (X).
+        X_all = df.select_dtypes(include='number').drop(columns=['AQI'], errors='ignore')
+        feature_names = X_all.columns.tolist()
         
-        # Button to trigger prediction
+        st.info(f"ℹ️ Model expects {len(feature_names)} inputs (Z-Scores). Adjust sliders below.")
+        
+        # Create a dictionary to store user inputs
+        user_inputs = {}
+        
+        # create a grid of columns for sliders
+        cols = st.columns(3)
+        
+        # DYNAMICALLY CREATE A SLIDER FOR EVERY SINGLE FEATURE
+        for i, col_name in enumerate(feature_names):
+            with cols[i % 3]:
+                # Default value is 0.0 (Average)
+                val = st.slider(f"{col_name}", -5.0, 5.0, 0.0, 0.1)
+                user_inputs[col_name] = val
+        
+        # Convert dictionary to a DataFrame (ensures correct column order)
+        input_df = pd.DataFrame([user_inputs])
+        
         if st.button("Predict AQI", type="primary", use_container_width=True):
-            # Pad the remaining features (if any) with 0.0 (Average)
-            full_in = inputs + [0.0] * (len(X_feats.columns) - len(inputs))
-            # Make prediction using the model
-            pred = model.predict([full_in])[0]
+            # Predict using the dataframe
+            pred = model.predict(input_df)[0]
             
-            st.divider()  # Add a visual divider
-            c1, c2 = st.columns([1,2])  # Create layout for result
-            # Display the predicted number (Big Green Text)
-            with c1: st.markdown(f"<h1 style='color:#10b981;font-size:60px;margin:0'>{pred:.0f}</h1>", unsafe_allow_html=True)
-            # Display a Gauge Chart for visual context
-            with c2: 
+            st.divider()
+            c1, c2 = st.columns([1,2])
+            
+            with c1: 
+                # Color logic for the number
+                color = "#10b981" # Green
+                if pred > 100: color = "#facc15" # Yellow
+                if pred > 200: color = "#f97316" # Orange
+                if pred > 300: color = "#ef4444" # Red
+                if pred > 400: color = "#7f1d1d" # Dark Red
+                
+                st.markdown(f"<h1 style='color:{color};font-size:70px;margin:0'>{pred:.0f}</h1>", unsafe_allow_html=True)
+                st.markdown(f"**Predicted AQI**")
+                
+            with c2:
                 fig = go.Figure(go.Indicator(
                     mode="gauge+number", 
                     value=pred, 
-                    title={'text': "Severity"}, 
-                    gauge={'axis': {'range': [0, 500]}, 
-                           'bar': {'color': "white"}, 
-                           'steps': [{'range': [0,100], 'color': "#00b894"}, 
-                                     {'range': [100,200], 'color': "#fdcb6e"}, 
-                                     {'range': [200,500], 'color': "#d63031"}]}
+                    title={'text': "Severity Level"}, 
+                    gauge={
+                        'axis': {'range': [0, 500]}, 
+                        'bar': {'color': color}, 
+                        'steps': [
+                            {'range': [0,50], 'color': "#00e400"},
+                            {'range': [50,100], 'color': "#ffff00"},
+                            {'range': [100,200], 'color': "#ff7e00"},
+                            {'range': [200,300], 'color': "#ff0000"},
+                            {'range': [300,400], 'color': "#8f3f97"},
+                            {'range': [400,500], 'color': "#7e0023"}
+                        ]
+                    }
                 ))
-                fig.update_layout(height=550, margin=dict(t=30,b=20,l=20,r=20))
+                fig.update_layout(height=300, margin=dict(t=30,b=20,l=20,r=20))
                 st.plotly_chart(fig, use_container_width=True)
-    except FileNotFoundError: 
-        # Warning if model file is missing
-        st.warning("⚠️ Train the model first.")
-
+                
+    except FileNotFoundError:
+        st.warning("⚠️ Model not found. Please go to the 'Model' tab and click 'Train Model Now'.")
+    except Exception as e:
+        st.error(f"Prediction Error: {e}")
 # TAB 6: MAP
 with tab6:
     st.header("Pollution Hotspots")  # Set header
