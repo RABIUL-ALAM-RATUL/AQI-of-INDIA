@@ -10,43 +10,29 @@ import joblib
 import warnings
 warnings.filterwarnings("ignore")
 
-# Clean Professional Header (No Logo)
-st.set_page_config(page_title="India Air Quality Dashboard", layout="wide")
+# Professional Cardiff Met Header
+st.set_page_config(page_title="India Air Quality", layout="wide")
 st.markdown("""
 <style>
-    .header {
-        background: linear-gradient(90deg, #0f172a, #1e293b);
-        padding: 35px;
-        border-radius: 15px;
-        color: #e2e8f0;
-        text-align: center;
-        box-shadow: 0 12px 35px rgba(0,0,0,0.4);
-        margin-bottom: 40px;
-    }
-    .title {font-size: 52px; font-weight: bold; margin: 0;}
-    .subtitle {font-size: 26px; margin: 12px 0;}
-    .stTabs [data-testid="stTab"] {
-        background: #0f172a; color: white; border-radius: 12px 12px 0 0;
-        padding: 16px 34px; font-weight: bold;
-    }
-    .stTabs [aria-selected="true"] {background: #3b82f6;}
-    .metric-card {
-        background: linear-gradient(135deg, #3b82f6, #1e40af);
-        padding: 35px;
-        border-radius: 22px;
-        color: white;
-        text-align: center;
-        box-shadow: 0 12px 30px rgba(0,0,0,0.3);
-    }
+    .header {background: linear-gradient(90deg, #001f3f, #003366); padding: 35px; border-radius: 15px; 
+             color: white; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.4); margin-bottom: 40px;}
+    .header img {height: 110px; margin-right: 25px;}
+    .title {font-size: 56px; font-weight: bold; margin: 0;}
+    .subtitle {font-size: 28px; margin: 12px 0; color: #e2e8f0;}
+    .stTabs [data-testid="stTab"] {background: #001f3f; color: white; border-radius: 12px 12px 0 0; padding: 16px 34px; font-weight: bold;}
+    .stTabs [aria-selected="true"] {background: #0074D9;}
+    .metric-card {background: linear-gradient(135deg, #0074D9, #001f3f); padding: 35px;
+                  border-radius: 22px; color: white; text-align: center; box-shadow: 0 12px 30px rgba(0,0,0,0.3);}
 </style>
 
 <div class="header">
+    <img src="https://www.cardiffmet.ac.uk/PublishingImages/logo.png" alt="Cardiff Met">
     <div class="title">India Air Quality Analysis Dashboard</div>
     <div class="subtitle">CMP7005 • ST20316895 • 2025-26</div>
 </div>
 """, unsafe_allow_html=True)
 
-# Load Data — 100% Safe & Correct
+# Load Data — Safe & Accurate
 @st.cache_data
 def load_data():
     df = pd.read_csv("India_Air_Quality_Final_Processed.csv")
@@ -54,7 +40,7 @@ def load_data():
     # Standardize column names
     df.columns = [c.strip().lower().replace(' ', '_').replace('.', '') for c in df.columns]
     
-    # Rename key columns safely
+    # Ensure key columns exist
     if 'aqi' not in df.columns:
         aqi_col = [c for c in df.columns if 'aqi' in c and 'bucket' not in c]
         if aqi_col: df.rename(columns={aqi_col[0]: 'aqi'}, inplace=True)
@@ -69,7 +55,7 @@ def load_data():
     
     df['date'] = pd.to_datetime(df['date'], errors='coerce')
     
-    # Clean numeric columns
+    # Fill numeric NaNs
     numeric_cols = df.select_dtypes(include='number').columns
     df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
     
@@ -90,13 +76,21 @@ with tab1:
     with c3: st.markdown(f'<div class="metric-card">Avg AQI<br><h2>{df["aqi"].mean():.1f}</h2></div>', unsafe_allow_html=True)
     with c4: st.markdown(f'<div class="metric-card">Peak AQI<br><h2>{df["aqi"].max():.0f}</h2></div>', unsafe_allow_html=True)
     
-    fig = px.line(df.sample(min(5000, len(df))), x='date', y='aqi', color='city', title="AQI Trends Across 26 Cities")
+    fig = px.line(df.sample(min(5000, len(df))), x='date', y='aqi', color='city', title="AQI Trends Across India")
     st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
     st.header("Exploratory Data Analysis")
     numeric_cols = df.select_dtypes(include='number').columns.drop('aqi', errors='ignore')
-    fig = px.imshow(df[numeric_cols].corr(), title="Pollutant Correlation Matrix", color_continuous_scale="Blues")
+    corr_matrix = df[numeric_cols].corr()  # <-- THIS WAS THE FIX
+    fig = px.imshow(
+            corr, 
+            text_auto=True, 
+            color_continuous_scale='RdBu_r', 
+            title="Pollutant Correlation Matrix",
+            height=800,  # Make it tall enough
+            aspect="auto" # Adapt to container width
+        )
     st.plotly_chart(fig, use_container_width=True)
 
 with tab3:
@@ -125,22 +119,26 @@ with tab5:
     st.header("Live AQI Prediction")
     try:
         model = joblib.load("aqi_model.pkl")
-        st.markdown("Adjust pollutant levels to predict AQI")
-        inputs = {}
-        for col in X.columns[:6]:
-            inputs[col] = st.slider(col.upper(), 0.0, 500.0, 100.0)
+        pm25 = st.slider("PM2.5", 0, 500, 120)
+        pm10 = st.slider("PM10", 0, 600, 220)
+        no2  = st.slider("NO₂", 0, 200, 65)
         
         if st.button("Predict AQI", type="primary"):
-            input_arr = np.array([[inputs.get(c, 50) for c in X.columns]])
-            pred = model.predict(input_arr)[0]
+            input_data = np.array([[pm25, pm10, no2] + [50]*(len(X.columns)-3)])
+            pred = model.predict(input_data)[0]
             st.markdown(f"<h1 style='color:#10b981'>Predicted AQI: {pred:.1f}</h1>", unsafe_allow_html=True)
     except:
-        st.info("Train the model first in 'Model' tab")
+        st.info("Train the model first")
 
 with tab6:
     st.header("Pollution Hotspots")
-    fig = px.scatter_mapbox(df.sample(1000), lat=None, lon=None, color="aqi", size="aqi",
-                            hover_data=["city", "date"], title="Sample AQI Hotspots (26 Cities)")
+    city_coords = {'Delhi':(28.61,77.20), 'Mumbai':(19.07,72.87), 'Bengaluru':(12.97,77.59)}
+    city_aqi = df.groupby('city')['aqi'].mean().round(0).reset_index()
+    city_aqi['lat'] = city_aqi['city'].map({k:v[0] for k,v in city_coords.items()})
+    city_aqi['lon'] = city_aqi['city'].map({k:v[1] for k,v in city_coords.items()})
+    
+    fig = px.scatter_mapbox(city_aqi.dropna(), lat="lat", lon="lon", size="aqi", color="aqi",
+                            hover_name="city", zoom=4, title="AQI Hotspots")
     fig.update_layout(mapbox_style="carto-positron", height=600)
     st.plotly_chart(fig, use_container_width=True)
 
@@ -150,6 +148,8 @@ with tab7:
     **CMP7005 – Programming for Data Analysis**  
     **Student ID:** ST20316895  
     **Academic Year:** 2025–26  
-    **Dataset:** India Air Quality (26 Cities, 2015–2020)  
+    **Module Leader:** aprasad@cardiffmet.ac.uk  
+    **Dataset:** India Air Quality (2015–2020)  
     **Built with:** Python • Pandas • Scikit-learn • Streamlit • Plotly  
     """)
+    st.image("https://www.cardiffmet.ac.uk/PublishingImages/logo.png", width=300)
