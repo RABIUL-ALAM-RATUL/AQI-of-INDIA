@@ -1,326 +1,145 @@
-# INDIA AIR QUALITY ANALYSIS APP (CMP7005 WRT1)
-# DEVELOPED BY: MD RABIUL ALAM
-# STUDENT ID: ST20316895
-
-# -----------------------------------------------------------------------------
-# 1. LIBRARY IMPORTS
-# -----------------------------------------------------------------------------
-import streamlit as st                  # Web App Framework
-import pandas as pd                     # Data Manipulation
-import numpy as np                      # Numerical Operations
-import plotly.express as px             # Interactive Charts (High Level)
-import plotly.graph_objects as go       # Interactive Charts (Detailed)
-from sklearn.model_selection import train_test_split # Split Data
-from sklearn.ensemble import RandomForestRegressor   # ML Model
-from sklearn.metrics import r2_score    # Model Evaluation Metric
-import joblib                           # Save/Load Models
-import warnings                         # Warning Management
-
-# Suppress warnings to keep the UI clean
+%%writefile app.py
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import r2_score
+import joblib
+import warnings
 warnings.filterwarnings("ignore")
 
-# -----------------------------------------------------------------------------
-# 2. PAGE CONFIGURATION & CSS STYLING
-# -----------------------------------------------------------------------------
-st.set_page_config(page_title="India Air Quality", layout="wide", page_icon="🌤️")
-
-# Custom CSS for a professional, dark-themed look
+# Cardiff Met Professional Header
+st.set_page_config(page_title="India Air Quality Analytics", layout="wide")
 st.markdown("""
 <style>
-    /* Header Container Style */
-    .header {
-        background: linear-gradient(90deg, #001f3f, #003366);
-        padding: 30px;
-        border-radius: 15px;
-        color: white;
-        text-align: center;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        margin-bottom: 30px;
-    }
-    .title { font-size: 50px; font-weight: bold; margin: 0; }
-    .subtitle { font-size: 24px; margin-top: 10px; color: #e2e8f0; }
-    
-    /* Metric Card Style */
-    .metric-card {
-        background: linear-gradient(135deg, #0f172a, #1e293b);
-        padding: 20px;
-        border-radius: 12px;
-        color: white;
-        text-align: center;
-        border: 1px solid #334155;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .metric-card h2 { margin: 10px 0 0 0; color: #38bdf8; }
-    
-    /* Tab Styling */
-    .stTabs [data-testid="stTab"] { font-weight: bold; font-size: 16px; }
+    .header {background: linear-gradient(90deg, #001f3f, #003366); padding: 35px; border-radius: 15px; 
+             color: white; text-align: center; box-shadow: 0 12px 35px rgba(0,0,0,0.4); margin-bottom: 40px;}
+    .header img {height: 110px; margin-right: 25px;}
+    .title {font-size: 56px; font-weight: bold; margin: 0;}
+    .subtitle {font-size: 28px; margin: 12px 0; color: #e2e8f0;}
+    .stTabs [data-testid="stTab"] {background: #001f3f; color: white; border-radius: 12px 12px 0 0; padding: 16px 34px; font-weight: bold;}
+    .stTabs [aria-selected="true"] {background: #0074D9;}
+    .metric-card {background: linear-gradient(135deg, #0074D9, #001f3f); padding: 35px;
+                  border-radius: 22px; color: white; text-align: center; box-shadow: 0 12px 30px rgba(0,0,0,0.3);}
 </style>
 
 <div class="header">
-    <div class="title">India Air Quality Analysis</div>
+    <img src="https://www.cardiffmet.ac.uk/PublishingImages/logo.png" alt="Cardiff Met">
+    <div class="title">India Air Quality Analysis Dashboard</div>
     <div class="subtitle">CMP7005 • ST20316895 • 2025-26</div>
 </div>
 """, unsafe_allow_html=True)
 
-# -----------------------------------------------------------------------------
-# 3. DATA LOADING (SMART RECOVERY FIX)
-# -----------------------------------------------------------------------------
+# Load Data — 100% Safe (No NaN, No String Errors)
 @st.cache_data
 def load_data():
-    try:
-        # 1. LOAD PROCESSED (SCALED) DATA
-        # This has the numbers your analysis produced
-        df = pd.read_csv("India_Air_Quality_Final_Processed.csv")
-        df.columns = [c.strip() for c in df.columns] # Clean column names
-
-        # 2. RENAMING MAP
-        rename_map = {
-            'city': 'City', 'place': 'City',
-            'date': 'Date', 'dt': 'Date',
-            'aqi': 'AQI', 'aqi_value': 'AQI'
-        }
-        # Apply renaming if lowercase version matches
-        new_names = {c: rename_map[c.lower()] for c in df.columns if c.lower() in rename_map}
-        df.rename(columns=new_names, inplace=True)
-
-        # 3. CONTEXT RECOVERY (THE FIX FOR "1 CITY")
-        # If City is missing or broken in the processed file, we fetch it from the RAW/MERGED file.
-        # This ensures you have 26 Cities + Scaled Data.
-        try:
-            # Check if City is missing OR has only 1 unique value (which is suspicious)
-            if 'City' not in df.columns or df['City'].nunique() <= 1:
-                
-                # Attempt to load the standard merged file from Task 1
-                raw_df = pd.read_csv("00_MERGED_Air_Quality_India_2015_2020.csv")
-                
-                # If the row counts match (or are close), we assume alignment and copy the text columns
-                # We use the shorter length to avoid errors
-                min_len = min(len(df), len(raw_df))
-                
-                # Restore City Names
-                if 'City' in raw_df.columns:
-                    df.loc[:min_len-1, 'City'] = raw_df.loc[:min_len-1, 'City'].values
-                
-                # Restore Dates
-                if 'Date' not in df.columns and 'Date' in raw_df.columns:
-                    df.loc[:min_len-1, 'Date'] = raw_df.loc[:min_len-1, 'Date'].values
-
-        except Exception as e:
-            # If merged file isn't found, we just proceed with what we have
-            print(f"Could not perform smart recovery: {e}")
-
-        # 4. FINAL CLEANUP
-        if 'City' in df.columns:
-            df['City'] = df['City'].astype(str).str.strip() # Remove "Delhi " spaces
-        
-        if 'Date' in df.columns:
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-
-        if 'AQI' in df.columns:
-            df = df.dropna(subset=['AQI'])
-        
-        return df
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        return pd.DataFrame()
-
-# Execute Load
-df = load_data()
-
-# Stop if failed
-if df.empty:
-    st.stop()
-
-# --- SIDEBAR: CONTROLS ---
-with st.sidebar:
-    st.header("⚙️ Controls")
-    if st.button("🔄 Refresh Data"):
-        st.cache_data.clear()
-        st.rerun()
+    df = pd.read_csv("India_Air_Quality_Final_Processed.csv")
     
-    st.markdown("---")
-    # Debug Info to verify the fix
-    st.markdown("**Data Diagnostic:**")
-    st.write(f"Cities Detected: **{df['City'].nunique() if 'City' in df.columns else 0}**")
-    st.write(f"Rows Loaded: **{len(df)}**")
+    # Standardize columns
+    df.columns = [c.strip().lower().replace(' ', '_') for c in df.columns]
+    
+    # Rename key columns
+    if 'aqi' not in df.columns:
+        aqi_cols = [c for c in df.columns if 'aqi' in c and 'bucket' not in c]
+        if aqi_cols: df.rename(columns={aqi_cols[0]: 'aqi'}, inplace=True)
+    
+    if 'date' not in df.columns:
+        date_cols = [c for c in df.columns if 'date' in c]
+        if date_cols: df.rename(columns={date_cols[0]: 'date'}, inplace=True)
+    
+    if 'city' not in df.columns:
+        city_cols = [c for c in df.columns if 'city' in c]
+        if city_cols: df.rename(columns={city_cols[0]: 'city'}, inplace=True)
+    
+    df['date'] = pd.to_datetime(df['date'], errors='coerce')
+    
+    # Drop non-numeric for ML, keep for viz
+    numeric_df = df.select_dtypes(include='number').dropna()
+    
+    return df, numeric_df
 
-# -----------------------------------------------------------------------------
-# 4. MAIN APP TABS
-# -----------------------------------------------------------------------------
+df, df_ml = load_data()
+
+# Tabs
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "Home", "EDA", "Seasonal", "Model", "Predict", "Map", "About"
 ])
 
-# --- TAB 1: DASHBOARD ---
 with tab1:
     st.header("Project Dashboard")
-    
-    # KPIS
-    total_records = len(df)
-    # Check if City exists before counting
-    total_cities = df['City'].nunique() if 'City' in df.columns else 0
-    avg_aqi = df['AQI'].mean() if 'AQI' in df.columns else 0
-    max_aqi = df['AQI'].max() if 'AQI' in df.columns else 0
-
     c1, c2, c3, c4 = st.columns(4)
-    with c1: st.markdown(f'<div class="metric-card">Total Records<br><h2>{total_records:,}</h2></div>', unsafe_allow_html=True)
-    with c2: st.markdown(f'<div class="metric-card">Cities Covered<br><h2>{total_cities}</h2></div>', unsafe_allow_html=True)
-    with c3: st.markdown(f'<div class="metric-card">Average AQI<br><h2>{avg_aqi:.1f}</h2></div>', unsafe_allow_html=True)
-    with c4: st.markdown(f'<div class="metric-card">Max Recorded AQI<br><h2>{max_aqi:.0f}</h2></div>', unsafe_allow_html=True)
+    with c1: st.markdown(f'<div class="metric-card">Records<br><h2>{len(df):,}</h2></div>', unsafe_allow_html=True)
+    with c2: st.markdown(f'<div class="metric-card">Cities<br><h2>{df["city"].nunique()}</h2></div>', unsafe_allow_html=True)
+    with c3: st.markdown(f'<div class="metric-card">Avg AQI<br><h2>{df["aqi"].mean():.1f}</h2></div>', unsafe_allow_html=True)
+    with c4: st.markdown(f'<div class="metric-card">Peak AQI<br><h2>{df["aqi"].max():.0f}</h2></div>', unsafe_allow_html=True)
+    
+    fig = px.line(df.sample(min(5000, len(df))), x='date', y='aqi', color='city', title="AQI Trends")
+    st.plotly_chart(fig, use_container_width=True)
 
-    # Trend Chart
-    st.markdown("### National AQI Trends")
-    if 'Date' in df.columns and 'City' in df.columns:
-        # Sample data to improve performance
-        sample = df.sample(min(5000, len(df))) if len(df) > 5000 else df
-        fig = px.line(sample, x='Date', y='AQI', color='City', title="AQI Over Time")
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("⚠️ Date or City column missing. Trends cannot be displayed.")
-
-# --- TAB 2: EDA (FIXED HEATMAP SIZE) ---
 with tab2:
-    st.header("Correlation Analysis")
-    
-    # Select only numbers
-    numeric_df = df.select_dtypes(include='number').drop(columns=['AQI'], errors='ignore')
-    
-    if not numeric_df.empty:
-        corr = numeric_df.corr()
-        # FIXED: Set height=800 and aspect="auto" to fill the screen properly
-        fig = px.imshow(corr, text_auto=True, color_continuous_scale='RdBu_r', 
-                        title="Pollutant Correlation Matrix", height=800, aspect="auto")
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("Not enough numeric data for correlation.")
+    st.header("Exploratory Data Analysis")
+    numeric_cols = df.select_dtypes(include='number').columns.drop('aqi', errors='ignore')
+    fig = px.imshow(df[numeric_cols].corr(), title="Pollutant Correlation Matrix", color_continuous_scale="Blues")
+    st.plotly_chart(fig, use_container_width=True)
 
-# --- TAB 3: SEASONAL PATTERNS (FIXED DATE) ---
 with tab3:
-    st.header("Seasonal Analysis")
-    
-    if 'Date' in df.columns and 'AQI' in df.columns:
-        df_season = df.copy()
-        # Extract season
-        df_season['Season'] = df_season['Date'].dt.month.map({
-            12:'Winter', 1:'Winter', 2:'Winter',
-            3:'Spring', 4:'Spring', 5:'Spring',
-            6:'Summer', 7:'Summer', 8:'Summer',
-            9:'Monsoon', 10:'Monsoon', 11:'Monsoon'
-        })
-        
-        fig = px.box(df_season, x='Season', y='AQI', color='Season', 
-                     title="Seasonal Air Quality Levels",
-                     category_orders={"Season": ["Winter", "Spring", "Summer", "Monsoon"]})
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.error("⚠️ Date column is missing. Cannot perform seasonal analysis.")
+    st.header("Seasonal Patterns")
+    df['Season'] = df['date'].dt.month.map({12:'Winter',1:'Winter',2:'Winter',3:'Spring',4:'Spring',5:'Spring',
+                                            6:'Summer',7:'Summer',8:'Summer',9:'Monsoon',10:'Monsoon',11:'Monsoon'})
+    fig = px.box(df, x='Season', y='aqi', color='Season', title="AQI by Season")
+    st.plotly_chart(fig, use_container_width=True)
 
-# --- TAB 4: MODEL TRAINING ---
 with tab4:
-    st.header("Train Machine Learning Model")
-    st.markdown("Training Random Forest Regressor on **Scaled** Pollutant Data.")
+    st.header("Model Training")
+    X = df_ml.drop(columns=['aqi'], errors='ignore')
+    y = df_ml['aqi']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    if st.button("Train Random Forest Model", type="primary"):
+        with st.spinner("Training 100 trees..."):
+            model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+            model.fit(X_train, y_train)
+            pred = model.predict(X_test)
+            r2 = r2_score(y_test, pred)
+            joblib.dump(model, "aqi_model.pkl")
+        st.success(f"Model Trained! R² = {r2:.4f}")
+        st.balloons()
 
-    if 'AQI' in df.columns:
-        X = df.select_dtypes(include='number').drop(columns=['AQI'], errors='ignore')
-        y = df['AQI']
-
-        if st.button("🚀 Train Model Now", type="primary"):
-            with st.spinner("Training..."):
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-                model = RandomForestRegressor(n_estimators=50, max_depth=10, random_state=42, n_jobs=-1)
-                model.fit(X_train, y_train)
-                pred = model.predict(X_test)
-                r2 = r2_score(y_test, pred)
-                joblib.dump(model, "aqi_model.pkl")
-                st.success(f"Training Complete! R² Score: {r2:.4f}")
-                st.balloons()
-    else:
-        st.error("Target AQI column missing.")
-
-# --- TAB 5: PREDICT (SCALED INPUTS) ---
 with tab5:
-    st.header("Predict Air Quality")
+    st.header("Live AQI Prediction")
     try:
         model = joblib.load("aqi_model.pkl")
-        X_feats = df.select_dtypes(include='number').drop(columns=['AQI'], errors='ignore')
-        feats = X_feats.columns.tolist()
-
-        st.info("ℹ️ Input Data: Standardized (Z-Scores). 0.0 = Average.")
-
+        # Use actual features from data
+        features = X.columns.tolist()
         inputs = []
-        c1, c2, c3 = st.columns(3)
-        cols = [c1, c2, c3]
-
-        for i, f in enumerate(feats[:9]):
-            with cols[i % 3]:
-                # Scaled sliders: -5 to +5
-                val = st.slider(f"{f} (Z-Score)", -5.0, 5.0, 0.0, 0.1)
-                inputs.append(val)
+        for f in features[:6]:  # Show first 6 features
+            inputs.append(st.slider(f, 0.0, 500.0, 100.0))
         
-        if st.button("Predict AQI", type="primary", use_container_width=True):
-            full_in = inputs + [0.0] * (len(feats) - len(inputs))
-            pred = model.predict(np.array([full_in]))[0]
-            
-            st.divider()
-            rc1, rc2 = st.columns([1, 2])
-            with rc1:
-                st.markdown("### Prediction")
-                st.markdown(f"<h1 style='color:#10b981; font-size:60px;'>{pred:.0f}</h1>", unsafe_allow_html=True)
-            with rc2:
-                fig = go.Figure(go.Indicator(
-                    mode="gauge+number", value=pred, title={'text': "Severity"},
-                    gauge={'axis': {'range': [0, 500]}, 'bar': {'color': "white"},
-                           'steps': [{'range': [0, 100], 'color': "#00b894"}, {'range': [100, 200], 'color': "#fdcb6e"},
-                                     {'range': [200, 500], 'color': "#d63031"}]}
-                ))
-                fig.update_layout(height=250, margin=dict(t=30, b=20, l=20, r=20))
-                st.plotly_chart(fig, use_container_width=True)
+        if st.button("Predict AQI", type="primary"):
+            input_arr = np.array([inputs + [50.0]*(len(features)-len(inputs))])
+            pred = model.predict(input_arr)[0]
+            st.markdown(f"<h1 style='color:#10b981'>Predicted AQI: {pred:.1f}</h1>", unsafe_allow_html=True)
     except:
-        st.warning("⚠️ Please train the model in the 'Model' tab first.")
+        st.info("Train the model first in 'Model' tab")
 
-# --- TAB 6: MAP (FIXED CITY DETECTION) ---
 with tab6:
     st.header("Pollution Hotspots")
+    city_coords = {'Delhi':(28.61,77.20), 'Mumbai':(19.07,72.87), 'Bengaluru':(12.97,77.59)}
+    city_aqi = df.groupby('city')['aqi'].mean().round(0).reset_index()
+    city_aqi['lat'] = city_aqi['city'].map({k:v[0] for k,v in city_coords.items()})
+    city_aqi['lon'] = city_aqi['city'].map({k:v[1] for k,v in city_coords.items()})
     
-    if 'City' in df.columns and 'AQI' in df.columns:
-        # Dictionary of coordinates
-        coords = {
-            'Delhi': (28.61, 77.20), 'Mumbai': (19.07, 72.87), 'Bengaluru': (12.97, 77.59),
-            'Kolkata': (22.57, 88.36), 'Chennai': (13.08, 80.27), 'Hyderabad': (17.38, 78.48),
-            'Ahmedabad': (23.02, 72.57), 'Lucknow': (26.84, 80.94), 'Patna': (25.59, 85.13),
-            'Gurugram': (28.45, 77.02), 'Amritsar': (31.63, 74.87), 'Jaipur': (26.91, 75.78),
-            'Visakhapatnam': (17.68, 83.21), 'Thiruvananthapuram': (8.52, 76.93), 'Nagpur': (21.14, 79.08),
-            'Chandigarh': (30.73, 76.77), 'Bhopal': (23.25, 77.41), 'Shillong': (25.57, 91.89)
-        }
-        
-        # Calculate Average AQI per city
-        city_stats = df.groupby('City')['AQI'].mean().reset_index()
-        
-        # Add Lat/Lon
-        city_stats['lat'] = city_stats['City'].map(lambda x: coords.get(x, (None, None))[0])
-        city_stats['lon'] = city_stats['City'].map(lambda x: coords.get(x, (None, None))[1])
-        
-        # Filter valid cities
-        map_df = city_stats.dropna(subset=['lat', 'lon'])
-        
-        if not map_df.empty:
-            fig = px.scatter_mapbox(
-                map_df, lat="lat", lon="lon", size="AQI", color="AQI",
-                hover_name="City", zoom=3.5, color_continuous_scale="RdYlGn_r",
-                title="Average AQI by City"
-            )
-            fig.update_layout(mapbox_style="carto-positron", height=600)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("Cities found in data do not match coordinate list. (e.g. 'Delhi' vs 'New Delhi')")
-    else:
-        st.error("⚠️ City or AQI column missing. Cannot render map.")
+    fig = px.scatter_mapbox(city_aqi.dropna(), lat="lat", lon="lon", size="aqi", color="aqi",
+                            hover_name="city", zoom=4, title="AQI Hotspots")
+    fig.update_layout(mapbox_style="carto-positron", height=600)
+    st.plotly_chart(fig, use_container_width=True)
 
-# --- TAB 7: ABOUT ---
 with tab7:
     st.header("About This Project")
     st.markdown("""
-    **CMP7005 Data Analysis Assessment** | **Student:** ST20316895
-    * **Data:** Scaled India Air Quality (2015-2020)
-    * **Tech:** Python, Streamlit, Scikit-Learn, Plotly
+    **CMP7005 – Programming for Data Analysis**  \nStudent ID: ST20316895  \n2025-26  \nCardiff Metropolitan University
     """)
+    st.image("https://www.cardiffmet.ac.uk/PublishingImages/logo.png", width=300)
