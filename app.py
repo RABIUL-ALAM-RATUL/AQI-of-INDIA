@@ -56,7 +56,7 @@ st.markdown("""
 def load_data():
     try:
         # 1. Load the Processed (Scaled) Data
-        df = pd.read_csv("India_Air_Quality_Final_Processed.csv")
+        df = pd.read_csv("India_Air_Quality_Final_Processed.csv.gz", compression='gzip')
         
         # Clean column names (remove spaces)
         df.columns = [c.strip() for c in df.columns]
