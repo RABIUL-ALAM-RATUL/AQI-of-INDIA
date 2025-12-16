@@ -89,7 +89,7 @@ st.markdown("""
 def load_data():
     try:
         # Load the CSV file into a Pandas DataFrame
-        df = pd.read_csv("India_Air_Quality_Final_Processed.csv")
+        df = pd.read_csv("00_MERGED_Air_Quality_India_2015_2020.csv")
 
         # Clean up column names by removing any leading/trailing spaces (common issue in CSVs)
         df.columns = [c.strip() for c in df.columns]
