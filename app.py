@@ -116,7 +116,7 @@ with tab1:
     st.header("Project Dashboard")
     
     # Calculate KPIs
-    # Note: AQI is unscaled, so these numbers make sense (e.g., 150, 200).
+    # Note: AQI is unscaled in your target column, so these numbers make sense (e.g., 150, 200).
     total_records = len(df)
     total_cities = df['City'].nunique() if 'City' in df.columns else 0
     avg_aqi = df['AQI'].mean()
