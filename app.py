@@ -1,8 +1,6 @@
-# ============================================================================
-# INDIA AIR QUALITY ANALYSIS APP (CMP7005 ASSESSMENT)
+# INDIA AIR QUALITY ANALYSIS APP
 # DEVELOPED BY: MD RABIUL ALAM
 # STUDENT ID: ST20316895
-# ============================================================================
 
 import streamlit as st  # Import Streamlit framework for building the web app
 import pandas as pd     # Import Pandas for data manipulation and analysis
@@ -18,9 +16,7 @@ import warnings         # Import warnings library to manage system alerts
 # Suppress warnings (like deprecation warnings) to keep the app interface clean
 warnings.filterwarnings("ignore")
 
-# ============================================================================
-# 1. APP CONFIGURATION
-# ============================================================================
+# APP CONFIGURATION
 
 # Configure the page settings (title, layout width, and browser icon)
 st.set_page_config(page_title="India Air Quality", layout="wide", page_icon="🌤️")
@@ -69,9 +65,8 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)  # Render the HTML/CSS
 
-# ============================================================================
-# 2. DATA LOADING (UPDATED FOR .GZ FILE)
-# ============================================================================
+
+# DATA LOADING (UPDATED FOR .GZ FILE)
 
 # Define a function to load data and cache it (prevents reloading on every interaction)
 @st.cache_data
@@ -114,14 +109,13 @@ df = load_data()
 # Check if the dataframe is empty (load failed) and stop the app if so
 if df.empty: st.stop()
 
-# ============================================================================
-# 3. TABS & VISUALIZATION
-# ============================================================================
+
+# TABS & VISUALIZATION
 
 # Create the navigation tabs for the app
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Home", "EDA", "Seasonal", "Model", "Predict", "Map", "About"])
 
-# --- TAB 1: DASHBOARD ---
+# TAB 1: DASHBOARD
 with tab1:
     st.header("Project Dashboard")  # Set header for the Dashboard tab
     
@@ -153,7 +147,7 @@ with tab1:
         # Display the chart
         st.plotly_chart(fig, use_container_width=True)
 
-# --- TAB 2: EDA (Exploratory Data Analysis) ---
+# TAB 2: EDA (Exploratory Data Analysis)
 with tab2:
     st.header("Correlation Analysis")  # Set header
     # Select only numeric columns (excluding AQI) to find correlations between features
@@ -166,7 +160,7 @@ with tab2:
         # Display the heatmap
         st.plotly_chart(fig, use_container_width=True)
 
-# --- TAB 3: SEASONAL ANALYSIS ---
+# TAB 3: SEASONAL ANALYSIS
 with tab3:
     st.header("Seasonal Patterns")  # Set header
     # Check if necessary columns exist
@@ -185,7 +179,7 @@ with tab3:
         # Display the box plot
         st.plotly_chart(fig, use_container_width=True)
 
-# --- TAB 4: MODEL TRAINING (Updated with 3 Metrics) ---
+# TAB 4: MODEL TRAINING (Updated with 3 Metrics)
 with tab4:
     st.header("Model Training")  # Set header
     # Description text explaining the model and metrics
@@ -230,7 +224,7 @@ with tab4:
             with m2: st.metric("MSE (Mean Squared Error)", f"{mse:.2f}")
             with m3: st.metric("MAE (Mean Absolute Error)", f"{mae:.2f}")
 
-# --- TAB 5: PREDICT ---
+# TAB 5: PREDICT
 with tab5:
     st.header("Predict Air Quality")  # Set header
     try:
@@ -272,13 +266,13 @@ with tab5:
                                      {'range': [100,200], 'color': "#fdcb6e"}, 
                                      {'range': [200,500], 'color': "#d63031"}]}
                 ))
-                fig.update_layout(height=250, margin=dict(t=30,b=20,l=20,r=20))
+                fig.update_layout(height=550, margin=dict(t=30,b=20,l=20,r=20))
                 st.plotly_chart(fig, use_container_width=True)
     except FileNotFoundError: 
         # Warning if model file is missing
         st.warning("⚠️ Train the model first.")
 
-# --- TAB 6: MAP ---
+# TAB 6: MAP
 with tab6:
     st.header("Pollution Hotspots")  # Set header
     # Check if City and AQI columns exist
@@ -311,7 +305,7 @@ with tab6:
         # Warning if City column is missing
         st.warning("⚠️ 'City' column missing. Cannot render map.")
 
-# --- TAB 7: ABOUT ---
+# TAB 7: ABOUT
 with tab7:
         st.header("About This Project")
         st.markdown("""
