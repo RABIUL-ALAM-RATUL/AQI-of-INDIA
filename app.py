@@ -310,9 +310,9 @@ with tab6:
 with tab7:
         st.header("About This Project")
         st.markdown("""
-        **CMP7005 – Programming for Data Analysis** **Student ID:** ST20316895
+        **CMP7005 – Programming for Data Analysis** 
+        **Student ID:** ST20316895
         **Academic Year:** 2025–26
-        **Module Leader:** aprasad@cardiffmet.ac.uk
         **Dataset:** India Air Quality (2015–2020)
         **Built with:** Python • Pandas • Scikit-learn • Streamlit • Plotly
         """)
